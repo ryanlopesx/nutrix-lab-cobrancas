@@ -1,0 +1,1152 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cobranças Nutrix Lab</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0d0d0f;
+      --surface: #18181c;
+      --surface2: #222228;
+      --surface3: #2a2a32;
+      --border: #2f2f3a;
+      --accent: #7c3aed;
+      --accent-h: #6d28d9;
+      --accent2: #10b981;
+      --danger: #ef4444;
+      --warn: #f59e0b;
+      --text: #e5e5ef;
+      --text2: #9090a8;
+      --text3: #5a5a72;
+      --radius: 10px;
+      --sidebar-w: 220px;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: var(--sidebar-w);
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+
+    .sidebar-logo {
+      padding: 24px 20px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sidebar-logo .brand {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.3px;
+    }
+
+    .sidebar-logo .brand span {
+      color: var(--accent);
+    }
+
+    .sidebar-logo .sub {
+      font-size: 11px;
+      color: var(--text3);
+      margin-top: 2px;
+    }
+
+    .sidebar-nav {
+      flex: 1;
+      padding: 12px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      color: var(--text2);
+      font-size: 14px;
+      font-weight: 500;
+      transition: all 0.15s;
+      user-select: none;
+    }
+
+    .nav-item:hover { background: var(--surface2); color: var(--text); }
+    .nav-item.active { background: var(--accent); color: #fff; }
+
+    .nav-item .icon { font-size: 17px; width: 20px; text-align: center; }
+
+    .sidebar-footer {
+      padding: 16px;
+      border-top: 1px solid var(--border);
+    }
+
+    .scheduler-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--text3);
+    }
+
+    .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--accent2);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    /* ── Main ── */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .topbar {
+      padding: 18px 28px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .topbar h1 {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .topbar .actions { display: flex; gap: 10px; align-items: center; }
+
+    .content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 28px;
+    }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all 0.15s;
+    }
+
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { background: var(--accent-h); }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-danger:hover { background: #dc2626; }
+    .btn-ghost {
+      background: transparent;
+      color: var(--text2);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover { background: var(--surface2); color: var(--text); }
+    .btn-success { background: var(--accent2); color: #fff; }
+    .btn-sm { padding: 5px 10px; font-size: 12px; }
+
+    /* ── Cards / Grid ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+    }
+
+    .grid {
+      display: grid;
+      gap: 16px;
+    }
+
+    .grid-2 { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+    .grid-3 { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+
+    /* ── Table ── */
+    .table-wrap { overflow-x: auto; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    th {
+      text-align: left;
+      padding: 10px 14px;
+      color: var(--text3);
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    td {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text2);
+      vertical-align: middle;
+    }
+
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: var(--surface2); }
+
+    td.name { color: var(--text); font-weight: 500; }
+
+    /* ── Forms ── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 28px;
+      width: min(480px, 95vw);
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .modal h2 { font-size: 16px; font-weight: 700; margin-bottom: 20px; }
+
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 12px; color: var(--text2); margin-bottom: 6px; font-weight: 600; }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      color: var(--text);
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.15s;
+      font-family: inherit;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+      border-color: var(--accent);
+    }
+
+    .form-group textarea { resize: vertical; min-height: 100px; }
+
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+
+    /* ── Badge ── */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .badge-green { background: rgba(16, 185, 129, 0.15); color: var(--accent2); }
+    .badge-red { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
+    .badge-yellow { background: rgba(245, 158, 11, 0.15); color: var(--warn); }
+    .badge-gray { background: rgba(144, 144, 168, 0.1); color: var(--text2); }
+    .badge-purple { background: rgba(124, 58, 237, 0.15); color: var(--accent); }
+
+    /* ── QR Code modal ── */
+    .qr-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      padding: 10px 0;
+    }
+
+    .qr-img {
+      width: 220px;
+      height: 220px;
+      background: var(--surface2);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+
+    .qr-img img { width: 100%; height: 100%; object-fit: contain; }
+    .qr-status { font-size: 13px; color: var(--text2); text-align: center; }
+
+    /* ── Sender card ── */
+    .sender-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .sender-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+
+    .sender-name { font-weight: 600; color: var(--text); font-size: 14px; }
+    .sender-id { font-size: 11px; color: var(--text3); margin-top: 2px; }
+    .sender-actions { display: flex; gap: 6px; }
+
+    /* ── Message card ── */
+    .msg-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+    }
+
+    .msg-card-body {
+      font-size: 13px;
+      color: var(--text2);
+      line-height: 1.6;
+      margin-bottom: 12px;
+    }
+
+    .msg-card-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 6px;
+    }
+
+    /* ── Stats ── */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+    }
+
+    .stat-label { font-size: 11px; color: var(--text3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat-value { font-size: 26px; font-weight: 700; color: var(--text); margin-top: 4px; }
+    .stat-value.green { color: var(--accent2); }
+    .stat-value.red { color: var(--danger); }
+    .stat-value.purple { color: var(--accent); }
+
+    /* ── Empty state ── */
+    .empty {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text3);
+    }
+
+    .empty .empty-icon { font-size: 40px; margin-bottom: 12px; }
+    .empty p { font-size: 14px; }
+
+    /* ── Spinner ── */
+    .spinner {
+      width: 32px; height: 32px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin: auto;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed;
+      bottom: 28px;
+      right: 28px;
+      padding: 12px 20px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 500;
+      z-index: 9999;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: all 0.25s;
+      pointer-events: none;
+      max-width: 340px;
+    }
+
+    #toast.show { opacity: 1; transform: translateY(0); }
+    #toast.success { background: #064e3b; color: #6ee7b7; border: 1px solid #065f46; }
+    #toast.error { background: #450a0a; color: #fca5a5; border: 1px solid #7f1d1d; }
+
+    /* ── History message preview ── */
+    .msg-preview {
+      max-width: 260px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-size: 12px;
+      color: var(--text3);
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .section-title { font-size: 15px; font-weight: 600; }
+
+    /* ── Settings ── */
+    .settings-section { max-width: 560px; }
+    .settings-section + .settings-section { margin-top: 28px; }
+    .settings-label { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 16px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+
+    /* scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="brand">Nutrix <span>Lab</span></div>
+    <div class="sub">Sistema de cobrança automática</div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-item active" data-page="clients">
+      <span class="icon">👥</span> Clientes
+    </div>
+    <div class="nav-item" data-page="senders">
+      <span class="icon">📱</span> Remetentes
+    </div>
+    <div class="nav-item" data-page="messages">
+      <span class="icon">💬</span> Mensagens
+    </div>
+    <div class="nav-item" data-page="history">
+      <span class="icon">📋</span> Histórico
+    </div>
+    <div class="nav-item" data-page="settings">
+      <span class="icon">⚙️</span> Configurações
+    </div>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="scheduler-badge">
+      <div class="dot"></div>
+      Scheduler ativo
+    </div>
+  </div>
+</aside>
+
+<!-- Main -->
+<div class="main">
+  <div class="topbar">
+    <h1 id="pageTitle">Clientes</h1>
+    <div class="actions" id="topbarActions"></div>
+  </div>
+  <div class="content" id="content"></div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+// ── State ────────────────────────────────────────────────────────────────────
+let currentPage = 'clients';
+let qrInterval = null;
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const content = () => $('content');
+
+function toast(msg, type = 'success') {
+  const el = $('toast');
+  el.textContent = msg;
+  el.className = `show ${type}`;
+  setTimeout(() => el.classList.remove('show'), 3500);
+}
+
+async function api(method, path, body) {
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(`/api${path}`, opts);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Erro desconhecido');
+  return data;
+}
+
+function fmtDate(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleString('pt-BR');
+}
+
+function fmtPhone(p) {
+  if (!p) return '—';
+  const d = p.replace(/\D/g, '');
+  if (d.length === 13) return `+${d.slice(0,2)} (${d.slice(2,4)}) ${d.slice(4,9)}-${d.slice(9)}`;
+  if (d.length === 12) return `+${d.slice(0,2)} (${d.slice(2,4)}) ${d.slice(4,8)}-${d.slice(8)}`;
+  return p;
+}
+
+function fmtCpf(c) {
+  if (!c) return '—';
+  const d = c.replace(/\D/g, '');
+  if (d.length === 11) return `${d.slice(0,3)}.${d.slice(3,6)}.${d.slice(6,9)}-${d.slice(9)}`;
+  return c;
+}
+
+// ── Navigation ───────────────────────────────────────────────────────────────
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.addEventListener('click', () => {
+    document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+    item.classList.add('active');
+    navigate(item.dataset.page);
+  });
+});
+
+function navigate(page) {
+  clearQrPolling();
+  currentPage = page;
+  const titles = {
+    clients: 'Clientes', senders: 'Remetentes',
+    messages: 'Mensagens', history: 'Histórico', settings: 'Configurações'
+  };
+  $('pageTitle').textContent = titles[page] || page;
+  $('topbarActions').innerHTML = '';
+  pages[page]();
+}
+
+// ── Pages ────────────────────────────────────────────────────────────────────
+const pages = {};
+
+// ── CLIENTS ──────────────────────────────────────────────────────────────────
+pages.clients = async () => {
+  content().innerHTML = `<div class="spinner" style="margin-top:60px"></div>`;
+  $('topbarActions').innerHTML = `
+    <button class="btn btn-ghost" onclick="openImportModal()">⬆ Importar CSV</button>
+    <button class="btn btn-primary" onclick="openClientModal()">+ Novo Cliente</button>
+  `;
+  try {
+    const clients = await api('GET', '/clients');
+    renderClients(clients);
+  } catch (e) { content().innerHTML = `<div class="empty"><p>${e.message}</p></div>`; }
+};
+
+function renderClients(clients) {
+  if (!clients.length) {
+    content().innerHTML = `
+      <div class="empty">
+        <div class="empty-icon">👥</div>
+        <p>Nenhum cliente cadastrado.</p>
+      </div>`;
+    return;
+  }
+  content().innerHTML = `
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Nome</th>
+            <th>CPF</th>
+            <th>Telefone</th>
+            <th>Intervalo</th>
+            <th>Último Envio</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${clients.map(c => `
+            <tr>
+              <td class="name">${escHtml(c.name)}</td>
+              <td>${fmtCpf(c.cpf)}</td>
+              <td>${fmtPhone(c.phone)}</td>
+              <td>${c.interval}h</td>
+              <td>${fmtDate(c.lastSent)}</td>
+              <td>
+                <button class="btn btn-ghost btn-sm" onclick='openClientModal(${JSON.stringify(c)})'>Editar</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteClient('${c.id}', '${escHtml(c.name)}')">Remover</button>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function openClientModal(client = null) {
+  const editing = !!client;
+  showModal(`
+    <h2>${editing ? 'Editar Cliente' : 'Novo Cliente'}</h2>
+    <div class="form-group">
+      <label>Nome completo</label>
+      <input id="f-name" placeholder="Ex: João da Silva" value="${editing ? escAttr(client.name) : ''}" />
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>CPF (somente dígitos)</label>
+        <input id="f-cpf" placeholder="12345678900" maxlength="14" value="${editing ? escAttr(client.cpf) : ''}" />
+      </div>
+      <div class="form-group">
+        <label>Intervalo entre mensagens</label>
+        <select id="f-interval">
+          ${[1,2,3,4,6,8,12,24,48].map(h => `<option value="${h}" ${editing && client.interval === h ? 'selected' : ''}>${h}h</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Telefone com DDD (somente dígitos)</label>
+      <input id="f-phone" placeholder="11999887766" maxlength="15" value="${editing ? escAttr(client.phone.replace(/^55/, '')) : ''}" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveClient(${editing ? `'${client.id}'` : null})">${editing ? 'Salvar' : 'Cadastrar'}</button>
+    </div>
+  `);
+}
+
+async function saveClient(id = null) {
+  const name = $('f-name').value.trim();
+  const cpf = $('f-cpf').value.trim();
+  const phone = $('f-phone').value.trim();
+  const interval = $('f-interval').value;
+  if (!name || !cpf || !phone) return toast('Preencha todos os campos.', 'error');
+  try {
+    if (id) {
+      await api('PUT', `/clients/${id}`, { name, cpf, phone, interval });
+      toast('Cliente atualizado!');
+    } else {
+      await api('POST', '/clients', { name, cpf, phone, interval });
+      toast('Cliente cadastrado!');
+    }
+    closeModal();
+    pages.clients();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+function openImportModal() {
+  showModal(`
+    <h2>Importar Clientes via CSV</h2>
+    <p style="font-size:12px;color:var(--text3);margin-bottom:16px;line-height:1.7">
+      O arquivo CSV deve ter cabeçalho com as colunas:<br>
+      <strong style="color:var(--accent)">nome, cpf, telefone</strong> (em qualquer ordem, separadas por vírgula ou ponto-e-vírgula).<br>
+      O DDD deve estar junto ao número. O prefixo 55 é adicionado automaticamente.
+    </p>
+    <div class="form-group">
+      <label>Arquivo CSV</label>
+      <input type="file" id="f-csv" accept=".csv,text/csv" />
+    </div>
+    <div class="form-group">
+      <label>Intervalo padrão entre mensagens</label>
+      <select id="f-csv-interval">
+        ${[1,2,3,4,6,8,12,24,48].map(h => `<option value="${h}" ${h===2?'selected':''}>${h}h</option>`).join('')}
+      </select>
+    </div>
+    <div id="csv-preview" style="margin-top:4px"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" id="btn-import" onclick="doImport()" disabled>Importar</button>
+    </div>
+  `);
+  $('f-csv').addEventListener('change', previewCsv);
+}
+
+let csvRows = [];
+
+function parseCsv(text) {
+  const sep = text.includes(';') ? ';' : ',';
+  const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
+  if (lines.length < 2) return [];
+  const headers = lines[0].split(sep).map(h => h.trim().toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g,''));
+  const idx = k => headers.findIndex(h => h.includes(k));
+  const iName = idx('nome'); const iCpf = idx('cpf'); const iTel = [idx('tel'), idx('fone'), idx('num'), idx('cel')].find(i => i >= 0);
+  if (iName < 0 || iCpf < 0 || iTel === undefined || iTel < 0) return null;
+  return lines.slice(1).map(line => {
+    const cols = line.split(sep).map(c => c.trim().replace(/^["']|["']$/g,''));
+    return { name: cols[iName] || '', cpf: cols[iCpf] || '', phone: cols[iTel] || '' };
+  }).filter(r => r.name || r.cpf || r.phone);
+}
+
+function previewCsv() {
+  const file = $('f-csv').files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const rows = parseCsv(e.target.result);
+    const preview = $('csv-preview');
+    const btn = $('btn-import');
+    if (!rows) {
+      preview.innerHTML = `<p style="color:var(--danger);font-size:12px">❌ Colunas não identificadas. Use cabeçalho: nome, cpf, telefone</p>`;
+      btn.disabled = true; csvRows = []; return;
+    }
+    csvRows = rows;
+    const valid = rows.filter(r => r.name && r.cpf && r.phone).length;
+    const invalid = rows.length - valid;
+    preview.innerHTML = `
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:12px;margin-top:8px">
+        <div style="color:var(--accent2)">✓ ${valid} clientes prontos para importar</div>
+        ${invalid ? `<div style="color:var(--warn)">⚠ ${invalid} linhas serão ignoradas (dados incompletos)</div>` : ''}
+        <div style="margin-top:10px;max-height:140px;overflow-y:auto">
+          <table style="width:100%;font-size:11px;border-collapse:collapse">
+            <thead><tr>
+              <th style="text-align:left;color:var(--text3);padding:4px 6px">Nome</th>
+              <th style="text-align:left;color:var(--text3);padding:4px 6px">CPF</th>
+              <th style="text-align:left;color:var(--text3);padding:4px 6px">Telefone</th>
+            </tr></thead>
+            <tbody>
+              ${rows.slice(0,8).map(r => `<tr>
+                <td style="padding:3px 6px;color:var(--text)">${escHtml(r.name)||'<span style="color:var(--danger)">—</span>'}</td>
+                <td style="padding:3px 6px;color:var(--text2)">${escHtml(r.cpf)||'<span style="color:var(--danger)">—</span>'}</td>
+                <td style="padding:3px 6px;color:var(--text2)">${escHtml(r.phone)||'<span style="color:var(--danger)">—</span>'}</td>
+              </tr>`).join('')}
+              ${rows.length > 8 ? `<tr><td colspan="3" style="padding:4px 6px;color:var(--text3)">... e mais ${rows.length - 8} linhas</td></tr>` : ''}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+    btn.disabled = valid === 0;
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+async function doImport() {
+  const interval = $('f-csv-interval').value;
+  const btn = $('btn-import');
+  btn.disabled = true; btn.textContent = 'Importando...';
+  try {
+    const res = await api('POST', '/clients/import', { rows: csvRows, interval });
+    closeModal();
+    toast(`✓ ${res.imported} clientes importados${res.skipped ? `, ${res.skipped} ignorados` : ''}.`);
+    pages.clients();
+  } catch (e) {
+    toast(e.message, 'error');
+    btn.disabled = false; btn.textContent = 'Importar';
+  }
+}
+
+async function deleteClient(id, name) {
+  if (!confirm(`Remover cliente "${name}"?`)) return;
+  try {
+    await api('DELETE', `/clients/${id}`);
+    toast('Cliente removido.');
+    pages.clients();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+// ── SENDERS ──────────────────────────────────────────────────────────────────
+pages.senders = async () => {
+  content().innerHTML = `<div class="spinner" style="margin-top:60px"></div>`;
+  $('topbarActions').innerHTML = `<button class="btn btn-primary" onclick="openSenderModal()">+ Nova Instância</button>`;
+  try {
+    const senders = await api('GET', '/senders');
+    renderSenders(senders);
+  } catch (e) { content().innerHTML = `<div class="empty"><p>${e.message}</p></div>`; }
+};
+
+function renderSenders(senders) {
+  if (!senders.length) {
+    content().innerHTML = `
+      <div class="empty">
+        <div class="empty-icon">📱</div>
+        <p>Nenhum remetente cadastrado.</p>
+      </div>`;
+    return;
+  }
+
+  const statusBadge = s => {
+    if (s === 'open') return `<span class="badge badge-green">● Conectado</span>`;
+    if (s === 'connecting') return `<span class="badge badge-yellow">● Conectando</span>`;
+    return `<span class="badge badge-gray">● Desconectado</span>`;
+  };
+
+  content().innerHTML = `
+    <div class="grid grid-2">
+      ${senders.map(s => `
+        <div class="sender-card">
+          <div class="sender-card-header">
+            <div>
+              <div class="sender-name">${escHtml(s.instanceName)}</div>
+              <div class="sender-id">Criado em ${fmtDate(s.createdAt)}</div>
+            </div>
+            <div class="sender-actions">
+              ${s.status !== 'open' ? `<button class="btn btn-success btn-sm" onclick="openQrModal('${escAttr(s.instanceName)}')">QR Code</button>` : ''}
+              <button class="btn btn-danger btn-sm" onclick="deleteSender('${escAttr(s.instanceName)}')">Remover</button>
+            </div>
+          </div>
+          ${statusBadge(s.status)}
+        </div>
+      `).join('')}
+    </div>`;
+}
+
+function openSenderModal() {
+  showModal(`
+    <h2>Nova Instância WhatsApp</h2>
+    <div class="form-group">
+      <label>Nome da instância</label>
+      <input id="f-instance" placeholder="Ex: nutrixlab-01" />
+    </div>
+    <p style="font-size:12px;color:var(--text3);margin-top:-8px;margin-bottom:16px">Use apenas letras, números e hifens. Sem espaços.</p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="createSender()">Criar Instância</button>
+    </div>
+  `);
+}
+
+async function createSender() {
+  const instanceName = $('f-instance').value.trim();
+  if (!instanceName) return toast('Informe o nome da instância.', 'error');
+  try {
+    await api('POST', '/senders', { instanceName });
+    toast('Instância criada! Escaneie o QR Code para conectar.');
+    closeModal();
+    pages.senders();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function deleteSender(instanceName) {
+  if (!confirm(`Remover instância "${instanceName}"?`)) return;
+  try {
+    await api('DELETE', `/senders/${instanceName}`);
+    toast('Instância removida.');
+    pages.senders();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+function openQrModal(instanceName) {
+  showModal(`
+    <h2>Conectar ${escHtml(instanceName)}</h2>
+    <div class="qr-container">
+      <div class="qr-img" id="qr-box"><div class="spinner"></div></div>
+      <div class="qr-status" id="qr-status">Carregando QR Code...</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Fechar</button>
+    </div>
+  `);
+  pollQr(instanceName);
+}
+
+function clearQrPolling() {
+  if (qrInterval) { clearInterval(qrInterval); qrInterval = null; }
+}
+
+function pollQr(instanceName) {
+  clearQrPolling();
+  const fetch = async () => {
+    try {
+      const data = await api('GET', `/senders/${instanceName}/qr`);
+      const box = $('qr-box');
+      const status = $('qr-status');
+      if (!box) { clearQrPolling(); return; }
+
+      if (data.base64) {
+        box.innerHTML = `<img src="${data.base64}" alt="QR Code" />`;
+        status.textContent = 'Escaneie com o WhatsApp → Aparelhos conectados → Conectar aparelho';
+      } else if (data.code) {
+        box.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(data.code)}&size=220x220" />`;
+        status.textContent = 'Escaneie com o WhatsApp → Aparelhos conectados → Conectar aparelho';
+      } else {
+        status.textContent = 'Aguardando geração do QR Code...';
+      }
+
+      // check if connected
+      const st = await api('GET', `/senders/${instanceName}/status`);
+      if (st.status === 'open') {
+        clearQrPolling();
+        if (box) {
+          box.innerHTML = `<span style="font-size:48px">✅</span>`;
+          status.textContent = 'Conectado com sucesso!';
+        }
+        setTimeout(() => { closeModal(); pages.senders(); }, 2000);
+      }
+    } catch {}
+  };
+  fetch();
+  qrInterval = setInterval(fetch, 4000);
+}
+
+// ── MESSAGES ─────────────────────────────────────────────────────────────────
+pages.messages = async () => {
+  content().innerHTML = `<div class="spinner" style="margin-top:60px"></div>`;
+  $('topbarActions').innerHTML = `<button class="btn btn-primary" onclick="openMsgModal()">+ Nova Mensagem</button>`;
+  try {
+    const msgs = await api('GET', '/messages');
+    renderMessages(msgs);
+  } catch (e) { content().innerHTML = `<div class="empty"><p>${e.message}</p></div>`; }
+};
+
+function renderMessages(msgs) {
+  if (!msgs.length) {
+    content().innerHTML = `<div class="empty"><div class="empty-icon">💬</div><p>Nenhum template cadastrado.</p></div>`;
+    return;
+  }
+  content().innerHTML = `
+    <p style="font-size:12px;color:var(--text3);margin-bottom:16px">
+      Use <strong style="color:var(--accent)">{nome}</strong> e <strong style="color:var(--accent)">{cpf}</strong> como variáveis nas mensagens. Total: <strong style="color:var(--text)">${msgs.length}</strong> templates.
+    </p>
+    <div class="grid grid-2">
+      ${msgs.map((m, i) => `
+        <div class="msg-card">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:8px;font-weight:600">#${i + 1}</div>
+          <div class="msg-card-body">${escHtml(m.template)}</div>
+          <div class="msg-card-footer">
+            <button class="btn btn-ghost btn-sm" onclick='openMsgModal(${JSON.stringify(m)})'>Editar</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteMsg('${m.id}')">Excluir</button>
+          </div>
+        </div>
+      `).join('')}
+    </div>`;
+}
+
+function openMsgModal(msg = null) {
+  const editing = !!msg;
+  showModal(`
+    <h2>${editing ? 'Editar Template' : 'Nova Mensagem'}</h2>
+    <div class="form-group">
+      <label>Texto da mensagem</label>
+      <textarea id="f-template" placeholder="Use {nome} e {cpf} como variáveis...">${editing ? escHtml(msg.template) : ''}</textarea>
+    </div>
+    <p style="font-size:11px;color:var(--text3)">Variáveis disponíveis: {nome} e {cpf}</p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveMsg(${editing ? `'${msg.id}'` : null})">${editing ? 'Salvar' : 'Criar'}</button>
+    </div>
+  `);
+}
+
+async function saveMsg(id = null) {
+  const template = $('f-template').value.trim();
+  if (!template) return toast('Digite o template.', 'error');
+  try {
+    if (id) {
+      await api('PUT', `/messages/${id}`, { template });
+      toast('Mensagem atualizada!');
+    } else {
+      await api('POST', '/messages', { template });
+      toast('Mensagem criada!');
+    }
+    closeModal();
+    pages.messages();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function deleteMsg(id) {
+  if (!confirm('Excluir esta mensagem?')) return;
+  try {
+    await api('DELETE', `/messages/${id}`);
+    toast('Mensagem excluída.');
+    pages.messages();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+// ── HISTORY ──────────────────────────────────────────────────────────────────
+pages.history = async () => {
+  content().innerHTML = `<div class="spinner" style="margin-top:60px"></div>`;
+  $('topbarActions').innerHTML = `<button class="btn btn-danger" onclick="clearHistory()">🗑 Limpar Histórico</button>`;
+  try {
+    const [history, clients, senders] = await Promise.all([
+      api('GET', '/history'),
+      api('GET', '/clients'),
+      api('GET', '/senders')
+    ]);
+    const total = history.length;
+    const sent = history.filter(h => h.status === 'sent').length;
+    const errors = history.filter(h => h.status === 'error').length;
+
+    content().innerHTML = `
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-label">Total de Clientes</div>
+          <div class="stat-value purple">${clients.length}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Instâncias Conectadas</div>
+          <div class="stat-value green">${senders.filter(s => s.status === 'open').length}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Total de Envios</div>
+          <div class="stat-value">${total}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Enviados com Sucesso</div>
+          <div class="stat-value green">${sent}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Erros</div>
+          <div class="stat-value red">${errors}</div>
+        </div>
+      </div>
+      ${total === 0 ? `<div class="empty"><div class="empty-icon">📋</div><p>Nenhum envio registrado ainda.</p></div>` : `
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Data/Hora</th>
+              <th>Cliente</th>
+              <th>Telefone</th>
+              <th>Instância</th>
+              <th>Status</th>
+              <th>Mensagem</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${history.map(h => `
+              <tr>
+                <td>${fmtDate(h.timestamp)}</td>
+                <td class="name">${escHtml(h.clientName)}</td>
+                <td>${fmtPhone(h.phone)}</td>
+                <td><span class="badge badge-purple">${escHtml(h.sender)}</span></td>
+                <td>${h.status === 'sent'
+                  ? '<span class="badge badge-green">✓ Enviado</span>'
+                  : `<span class="badge badge-red" title="${escAttr(h.error || '')}">✗ Erro</span>`}
+                </td>
+                <td><div class="msg-preview" title="${escAttr(h.message)}">${escHtml(h.message)}</div></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>`}
+    `;
+  } catch (e) { content().innerHTML = `<div class="empty"><p>${e.message}</p></div>`; }
+};
+
+async function clearHistory() {
+  if (!confirm('Limpar todo o histórico de envios?')) return;
+  try {
+    await api('DELETE', '/history');
+    toast('Histórico limpo.');
+    pages.history();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+// ── SETTINGS ─────────────────────────────────────────────────────────────────
+pages.settings = async () => {
+  $('topbarActions').innerHTML = '';
+  content().innerHTML = `<div class="spinner" style="margin-top:60px"></div>`;
+  try {
+    const cfg = await api('GET', '/config');
+    content().innerHTML = `
+      <div class="settings-section">
+        <div class="settings-label">⚡ Evolution API</div>
+        <div class="form-group">
+          <label>URL da Evolution API</label>
+          <input id="s-url" placeholder="https://sua-evolution-api.com" value="${escAttr(cfg.evolutionUrl)}" />
+        </div>
+        <div class="form-group">
+          <label>API Key</label>
+          <input id="s-key" type="password" placeholder="Sua chave de API" value="${escAttr(cfg.evolutionApiKey)}" />
+        </div>
+        <button class="btn btn-primary" onclick="saveConfig()">Salvar Configurações</button>
+      </div>
+      <div class="settings-section" style="margin-top:28px">
+        <div class="settings-label">📋 Variáveis de Ambiente</div>
+        <div class="card" style="font-size:13px;line-height:1.9;color:var(--text2)">
+          <div><code style="color:var(--accent)">EVOLUTION_URL</code> — URL base da Evolution API</div>
+          <div><code style="color:var(--accent)">EVOLUTION_APIKEY</code> — Chave de autenticação da API</div>
+          <div><code style="color:var(--accent)">DEFAULT_SENDERS</code> — Instâncias criadas automaticamente ao iniciar (separadas por vírgula)</div>
+          <div><code style="color:var(--accent)">PORT</code> — Porta do servidor (padrão: 3001)</div>
+        </div>
+      </div>
+      <div class="settings-section" style="margin-top:28px">
+        <div class="settings-label">ℹ️ Sobre o Sistema</div>
+        <div class="card" style="font-size:13px;line-height:1.9;color:var(--text2)">
+          <div>🔄 Scheduler executa a cada <strong style="color:var(--text)">60 segundos</strong></div>
+          <div>📤 Instâncias escolhidas <strong style="color:var(--text)">aleatoriamente</strong> a cada envio</div>
+          <div>💬 Mensagens <strong style="color:var(--text)">nunca se repetem em sequência</strong></div>
+          <div>📞 Prefixo <strong style="color:var(--text)">55</strong> adicionado automaticamente ao telefone</div>
+          <div>📱 Contato Nutrix Lab: <strong style="color:var(--text)">+55 (11) 95977-7425</strong></div>
+        </div>
+      </div>
+    `;
+  } catch (e) { content().innerHTML = `<div class="empty"><p>${e.message}</p></div>`; }
+};
+
+async function saveConfig() {
+  const evolutionUrl = $('s-url').value.trim();
+  const evolutionApiKey = $('s-key').value.trim();
+  try {
+    await api('PUT', '/config', { evolutionUrl, evolutionApiKey });
+    toast('Configurações salvas!');
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+// ── Modal helpers ─────────────────────────────────────────────────────────────
+function showModal(html) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'modal-overlay';
+  overlay.innerHTML = `<div class="modal">${html}</div>`;
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
+  document.body.appendChild(overlay);
+}
+
+function closeModal() {
+  clearQrPolling();
+  const el = $('modal-overlay');
+  if (el) el.remove();
+}
+
+// ── Escape helpers ────────────────────────────────────────────────────────────
+function escHtml(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function escAttr(s) {
+  return String(s || '').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+navigate('clients');
+</script>
+</body>
+</html>

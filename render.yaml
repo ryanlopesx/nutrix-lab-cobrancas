@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: fnx-cobrancas
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: PORT
+        value: 3001
+      - key: EVOLUTION_URL
+        sync: false
+      - key: EVOLUTION_APIKEY
+        sync: false
+      - key: DEFAULT_SENDERS
+        sync: false
