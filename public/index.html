@@ -466,6 +466,9 @@
     <div class="nav-item active" data-page="clients">
       <span class="icon">👥</span> Clientes
     </div>
+    <div class="nav-item" data-page="products">
+      <span class="icon">📦</span> Produtos
+    </div>
     <div class="nav-item" data-page="senders">
       <span class="icon">📱</span> Remetentes
     </div>
@@ -557,7 +560,7 @@ function navigate(page) {
   clearQrPolling();
   currentPage = page;
   const titles = {
-    clients: 'Clientes', senders: 'Remetentes',
+    clients: 'Clientes', products: 'Produtos', senders: 'Remetentes',
     messages: 'Mensagens', history: 'Histórico', settings: 'Configurações'
   };
   $('pageTitle').textContent = titles[page] || page;
@@ -568,6 +571,81 @@ function navigate(page) {
 // ── Pages ────────────────────────────────────────────────────────────────────
 const pages = {};
 
+// ── PRODUCTS ─────────────────────────────────────────────────────────────────
+pages.products = async () => {
+  content().innerHTML = `<div class="spinner" style="margin-top:60px"></div>`;
+  $('topbarActions').innerHTML = `<button class="btn btn-primary" onclick="openProductModal()">+ Novo Produto</button>`;
+  try {
+    const products = await api('GET', '/products');
+    renderProducts(products);
+  } catch (e) { content().innerHTML = `<div class="empty"><p>${e.message}</p></div>`; }
+};
+
+function renderProducts(products) {
+  if (!products.length) {
+    content().innerHTML = `<div class="empty"><div class="empty-icon">📦</div><p>Nenhum produto cadastrado.<br><small style="color:var(--text3)">Crie produtos para vincular templates específicos a cada um.</small></p></div>`;
+    return;
+  }
+  content().innerHTML = `
+    <div class="grid grid-2">
+      ${products.map(p => `
+        <div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+          <div>
+            <div style="font-weight:600;color:var(--text);font-size:15px">📦 ${escHtml(p.name)}</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:4px">ID: ${p.id}</div>
+          </div>
+          <div style="display:flex;gap:6px;flex-shrink:0">
+            <button class="btn btn-ghost btn-sm" onclick='openProductModal(${JSON.stringify(p)})'>Editar</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteProduct('${p.id}','${escAttr(p.name)}')">Excluir</button>
+          </div>
+        </div>
+      `).join('')}
+    </div>`;
+}
+
+function openProductModal(product = null) {
+  const editing = !!product;
+  showModal(`
+    <h2>${editing ? 'Editar Produto' : 'Novo Produto'}</h2>
+    <div class="form-group">
+      <label>Nome do produto</label>
+      <input id="f-pname" placeholder="Ex: Erecton, Camildrol..." value="${editing ? escAttr(product.name) : ''}" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveProduct(${editing ? `'${product.id}'` : null})">${editing ? 'Salvar' : 'Criar'}</button>
+    </div>
+  `);
+  setTimeout(() => $('f-pname')?.focus(), 50);
+}
+
+async function saveProduct(id = null) {
+  const name = $('f-pname').value.trim();
+  if (!name) return toast('Informe o nome do produto.', 'error');
+  try {
+    if (id) { await api('PUT', `/products/${id}`, { name }); toast('Produto atualizado!'); }
+    else { await api('POST', '/products', { name }); toast('Produto criado!'); }
+    closeModal(); pages.products();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function deleteProduct(id, name) {
+  if (!confirm(`Excluir produto "${name}"?\nClientes e mensagens vinculados perderão o vínculo.`)) return;
+  try { await api('DELETE', `/products/${id}`); toast('Produto excluído.'); pages.products(); }
+  catch (e) { toast(e.message, 'error'); }
+}
+
+// helper: carrega produtos como opções <option>
+async function loadProductOptions(selectedId = null, includeBlank = true) {
+  try {
+    const products = await api('GET', '/products');
+    const blank = includeBlank ? `<option value="">— Sem produto —</option>` : '';
+    return blank + products.map(p =>
+      `<option value="${p.id}" ${p.id === selectedId ? 'selected' : ''}>${escHtml(p.name)}</option>`
+    ).join('');
+  } catch { return '<option value="">— Sem produto —</option>'; }
+}
+
 // ── CLIENTS ──────────────────────────────────────────────────────────────────
 pages.clients = async () => {
   content().innerHTML = `<div class="spinner" style="margin-top:60px"></div>`;
@@ -576,18 +654,16 @@ pages.clients = async () => {
     <button class="btn btn-primary" onclick="openClientModal()">+ Novo Cliente</button>
   `;
   try {
-    const clients = await api('GET', '/clients');
-    renderClients(clients);
+    const [clients, products] = await Promise.all([api('GET', '/clients'), api('GET', '/products')]);
+    window._products = products;
+    renderClients(clients, products);
   } catch (e) { content().innerHTML = `<div class="empty"><p>${e.message}</p></div>`; }
 };
 
-function renderClients(clients) {
+function renderClients(clients, products = []) {
+  const pmap = Object.fromEntries((products || window._products || []).map(p => [p.id, p.name]));
   if (!clients.length) {
-    content().innerHTML = `
-      <div class="empty">
-        <div class="empty-icon">👥</div>
-        <p>Nenhum cliente cadastrado.</p>
-      </div>`;
+    content().innerHTML = `<div class="empty"><div class="empty-icon">👥</div><p>Nenhum cliente cadastrado.</p></div>`;
     return;
   }
   content().innerHTML = `
@@ -598,6 +674,7 @@ function renderClients(clients) {
             <th>Nome</th>
             <th>CPF</th>
             <th>Telefone</th>
+            <th>Produto</th>
             <th>Intervalo</th>
             <th>Último Envio</th>
             <th>Ações</th>
@@ -609,11 +686,12 @@ function renderClients(clients) {
               <td class="name">${escHtml(c.name)}</td>
               <td>${fmtCpf(c.cpf)}</td>
               <td>${fmtPhone(c.phone)}</td>
+              <td>${c.productId && pmap[c.productId] ? `<span class="badge badge-purple">${escHtml(pmap[c.productId])}</span>` : '<span style="color:var(--text3)">—</span>'}</td>
               <td>${c.interval}h</td>
               <td>${fmtDate(c.lastSent)}</td>
               <td>
                 <button class="btn btn-ghost btn-sm" onclick='openClientModal(${JSON.stringify(c)})'>Editar</button>
-                <button class="btn btn-danger btn-sm" onclick="deleteClient('${c.id}', '${escHtml(c.name)}')">Remover</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteClient('${c.id}','${escAttr(c.name)}')">Remover</button>
               </td>
             </tr>
           `).join('')}
@@ -624,6 +702,7 @@ function renderClients(clients) {
 
 function openClientModal(client = null) {
   const editing = !!client;
+  const productOpts = await loadProductOptions(editing ? client.productId : null);
   showModal(`
     <h2>${editing ? 'Editar Cliente' : 'Novo Cliente'}</h2>
     <div class="form-group">
@@ -642,9 +721,15 @@ function openClientModal(client = null) {
         </select>
       </div>
     </div>
-    <div class="form-group">
-      <label>Telefone com DDD (somente dígitos)</label>
-      <input id="f-phone" placeholder="11999887766" maxlength="15" value="${editing ? escAttr(client.phone.replace(/^55/, '')) : ''}" />
+    <div class="form-row">
+      <div class="form-group">
+        <label>Telefone com DDD (somente dígitos)</label>
+        <input id="f-phone" placeholder="11999887766" maxlength="15" value="${editing ? escAttr(client.phone.replace(/^55/, '')) : ''}" />
+      </div>
+      <div class="form-group">
+        <label>Produto</label>
+        <select id="f-product">${productOpts}</select>
+      </div>
     </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
@@ -658,13 +743,14 @@ async function saveClient(id = null) {
   const cpf = $('f-cpf').value.trim();
   const phone = $('f-phone').value.trim();
   const interval = $('f-interval').value;
+  const productId = $('f-product')?.value || null;
   if (!name || !cpf || !phone) return toast('Preencha todos os campos.', 'error');
   try {
     if (id) {
-      await api('PUT', `/clients/${id}`, { name, cpf, phone, interval });
+      await api('PUT', `/clients/${id}`, { name, cpf, phone, interval, productId });
       toast('Cliente atualizado!');
     } else {
-      await api('POST', '/clients', { name, cpf, phone, interval });
+      await api('POST', '/clients', { name, cpf, phone, interval, productId });
       toast('Cliente cadastrado!');
     }
     closeModal();
@@ -672,23 +758,29 @@ async function saveClient(id = null) {
   } catch (e) { toast(e.message, 'error'); }
 }
 
-function openImportModal() {
+async function openImportModal() {
+  const productOpts = await loadProductOptions(null, true);
   showModal(`
     <h2>Importar Clientes via CSV</h2>
     <p style="font-size:12px;color:var(--text3);margin-bottom:16px;line-height:1.7">
-      O arquivo CSV deve ter cabeçalho com as colunas:<br>
-      <strong style="color:var(--accent)">nome, cpf, telefone</strong> (em qualquer ordem, separadas por vírgula ou ponto-e-vírgula).<br>
-      O DDD deve estar junto ao número. O prefixo 55 é adicionado automaticamente.
+      Cabeçalho obrigatório: <strong style="color:var(--accent)">nome, cpf, telefone</strong><br>
+      Separador: vírgula ou ponto-e-vírgula. Prefixo 55 adicionado automaticamente.
     </p>
     <div class="form-group">
       <label>Arquivo CSV</label>
       <input type="file" id="f-csv" accept=".csv,text/csv" />
     </div>
-    <div class="form-group">
-      <label>Intervalo padrão entre mensagens</label>
-      <select id="f-csv-interval">
-        ${[1,2,3,4,6,8,12,24,48].map(h => `<option value="${h}" ${h===2?'selected':''}>${h}h</option>`).join('')}
-      </select>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Produto</label>
+        <select id="f-csv-product">${productOpts}</select>
+      </div>
+      <div class="form-group">
+        <label>Intervalo padrão</label>
+        <select id="f-csv-interval">
+          ${[1,2,3,4,6,8,12,24,48].map(h => `<option value="${h}" ${h===2?'selected':''}>${h}h</option>`).join('')}
+        </select>
+      </div>
     </div>
     <div id="csv-preview" style="margin-top:4px"></div>
     <div class="modal-actions">
@@ -760,10 +852,11 @@ function previewCsv() {
 
 async function doImport() {
   const interval = $('f-csv-interval').value;
+  const productId = $('f-csv-product')?.value || null;
   const btn = $('btn-import');
   btn.disabled = true; btn.textContent = 'Importando...';
   try {
-    const res = await api('POST', '/clients/import', { rows: csvRows, interval });
+    const res = await api('POST', '/clients/import', { rows: csvRows, interval, productId });
     closeModal();
     toast(`✓ ${res.imported} clientes importados${res.skipped ? `, ${res.skipped} ignorados` : ''}.`);
     pages.clients();
@@ -869,12 +962,46 @@ function openQrModal(instanceName) {
     <div class="qr-container">
       <div class="qr-img" id="qr-box"><div class="spinner"></div></div>
       <div class="qr-status" id="qr-status">Carregando QR Code...</div>
+      <div id="qr-error" style="display:none;background:#450a0a;color:#fca5a5;border:1px solid #7f1d1d;border-radius:8px;padding:10px 14px;font-size:12px;max-width:280px;text-align:left;word-break:break-all"></div>
     </div>
-    <div class="modal-actions">
-      <button class="btn btn-ghost" onclick="closeModal()">Fechar</button>
+    <div class="modal-actions" style="justify-content:space-between">
+      <button class="btn btn-ghost btn-sm" onclick="refreshQr('${escAttr(instanceName)}')">↻ Atualizar QR</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost btn-sm" onclick="openDebugModal('${escAttr(instanceName)}')">🔍 Debug</button>
+        <button class="btn btn-ghost" onclick="closeModal()">Fechar</button>
+      </div>
     </div>
   `);
   pollQr(instanceName);
+}
+
+function refreshQr(instanceName) {
+  const box = $('qr-box');
+  const status = $('qr-status');
+  const errEl = $('qr-error');
+  if (box) box.innerHTML = `<div class="spinner"></div>`;
+  if (status) status.textContent = 'Atualizando...';
+  if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
+  clearQrPolling();
+  pollQr(instanceName);
+}
+
+async function openDebugModal(instanceName) {
+  clearQrPolling();
+  showModal(`
+    <h2>Debug — ${escHtml(instanceName)}</h2>
+    <div id="debug-content"><div class="spinner" style="margin:20px auto"></div></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="openQrModal('${escAttr(instanceName)}')">← Voltar ao QR</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Fechar</button>
+    </div>
+  `);
+  try {
+    const data = await api('GET', `/debug/evo/${instanceName}`);
+    $('debug-content').innerHTML = `<pre style="font-size:11px;color:var(--text2);background:var(--surface2);padding:12px;border-radius:8px;overflow:auto;max-height:340px;white-space:pre-wrap">${escHtml(JSON.stringify(data, null, 2))}</pre>`;
+  } catch (e) {
+    $('debug-content').innerHTML = `<p style="color:var(--danger)">${escHtml(e.message)}</p>`;
+  }
 }
 
 function clearQrPolling() {
@@ -883,76 +1010,124 @@ function clearQrPolling() {
 
 function pollQr(instanceName) {
   clearQrPolling();
-  const fetch = async () => {
+  const run = async () => {
+    const box = $('qr-box');
+    const statusEl = $('qr-status');
+    const errEl = $('qr-error');
+    if (!box) { clearQrPolling(); return; }
+
     try {
       const data = await api('GET', `/senders/${instanceName}/qr`);
-      const box = $('qr-box');
-      const status = $('qr-status');
-      if (!box) { clearQrPolling(); return; }
+      if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
 
       if (data.base64) {
-        box.innerHTML = `<img src="${data.base64}" alt="QR Code" />`;
-        status.textContent = 'Escaneie com o WhatsApp → Aparelhos conectados → Conectar aparelho';
+        // base64 might already have "data:image/png;base64," prefix or not
+        const src = data.base64.startsWith('data:') ? data.base64 : `data:image/png;base64,${data.base64}`;
+        box.innerHTML = `<img src="${src}" alt="QR Code" style="width:100%;height:100%;object-fit:contain" />`;
+        if (statusEl) statusEl.textContent = 'Abra o WhatsApp → Aparelhos conectados → Conectar aparelho';
       } else if (data.code) {
-        box.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(data.code)}&size=220x220" />`;
-        status.textContent = 'Escaneie com o WhatsApp → Aparelhos conectados → Conectar aparelho';
+        box.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(data.code)}&size=220x220&margin=10" style="width:100%;height:100%;object-fit:contain" />`;
+        if (statusEl) statusEl.textContent = 'Abra o WhatsApp → Aparelhos conectados → Conectar aparelho';
+      } else if (data.pairingCode) {
+        box.innerHTML = `<div style="font-size:28px;font-weight:700;color:var(--accent);letter-spacing:4px">${escHtml(data.pairingCode)}</div>`;
+        if (statusEl) statusEl.textContent = 'Use o código de pareamento acima no WhatsApp';
       } else {
-        status.textContent = 'Aguardando geração do QR Code...';
+        if (statusEl) statusEl.textContent = 'Aguardando geração do QR Code...';
       }
+    } catch (err) {
+      if (errEl) {
+        errEl.style.display = 'block';
+        errEl.textContent = '❌ Erro: ' + err.message;
+      }
+    }
 
-      // check if connected
+    // check connection status separately
+    try {
       const st = await api('GET', `/senders/${instanceName}/status`);
       if (st.status === 'open') {
         clearQrPolling();
-        if (box) {
-          box.innerHTML = `<span style="font-size:48px">✅</span>`;
-          status.textContent = 'Conectado com sucesso!';
-        }
+        if (box) box.innerHTML = `<span style="font-size:48px">✅</span>`;
+        if (statusEl) statusEl.textContent = 'Conectado com sucesso!';
         setTimeout(() => { closeModal(); pages.senders(); }, 2000);
       }
     } catch {}
   };
-  fetch();
-  qrInterval = setInterval(fetch, 4000);
+  run();
+  qrInterval = setInterval(run, 5000);
 }
 
 // ── MESSAGES ─────────────────────────────────────────────────────────────────
+let _msgActiveProduct = '__all__'; // tab state
+
 pages.messages = async () => {
   content().innerHTML = `<div class="spinner" style="margin-top:60px"></div>`;
   $('topbarActions').innerHTML = `<button class="btn btn-primary" onclick="openMsgModal()">+ Nova Mensagem</button>`;
   try {
-    const msgs = await api('GET', '/messages');
-    renderMessages(msgs);
+    const [msgs, products] = await Promise.all([api('GET', '/messages'), api('GET', '/products')]);
+    window._products = products;
+    renderMessages(msgs, products);
   } catch (e) { content().innerHTML = `<div class="empty"><p>${e.message}</p></div>`; }
 };
 
-function renderMessages(msgs) {
-  if (!msgs.length) {
-    content().innerHTML = `<div class="empty"><div class="empty-icon">💬</div><p>Nenhum template cadastrado.</p></div>`;
-    return;
-  }
+function renderMessages(msgs, products = []) {
+  const tabs = [
+    { id: '__all__', label: 'Todas' },
+    { id: '__none__', label: 'Sem produto' },
+    ...products.map(p => ({ id: p.id, label: p.name }))
+  ];
+  const filtered = _msgActiveProduct === '__all__' ? msgs
+    : _msgActiveProduct === '__none__' ? msgs.filter(m => !m.productId)
+    : msgs.filter(m => m.productId === _msgActiveProduct);
+
   content().innerHTML = `
-    <p style="font-size:12px;color:var(--text3);margin-bottom:16px">
-      Use <strong style="color:var(--accent)">{nome}</strong> e <strong style="color:var(--accent)">{cpf}</strong> como variáveis nas mensagens. Total: <strong style="color:var(--text)">${msgs.length}</strong> templates.
-    </p>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--border)">
+      ${tabs.map(t => `
+        <button onclick="switchMsgTab('${t.id}')" style="
+          padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:none;transition:all .15s;
+          background:${_msgActiveProduct===t.id ? 'var(--accent)' : 'var(--surface2)'};
+          color:${_msgActiveProduct===t.id ? '#fff' : 'var(--text2)'}">
+          ${escHtml(t.label)} <span style="opacity:.7">(${
+            t.id==='__all__' ? msgs.length :
+            t.id==='__none__' ? msgs.filter(m=>!m.productId).length :
+            msgs.filter(m=>m.productId===t.id).length
+          })</span>
+        </button>`).join('')}
+    </div>
+    ${!filtered.length ? `<div class="empty"><div class="empty-icon">💬</div><p>Nenhuma mensagem nesta categoria.</p></div>` : `
     <div class="grid grid-2">
-      ${msgs.map((m, i) => `
+      ${filtered.map((m, i) => {
+        const prod = products.find(p => p.id === m.productId);
+        return `
         <div class="msg-card">
-          <div style="font-size:11px;color:var(--text3);margin-bottom:8px;font-weight:600">#${i + 1}</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <span style="font-size:11px;color:var(--text3);font-weight:600">#${i + 1}</span>
+            ${prod ? `<span class="badge badge-purple">${escHtml(prod.name)}</span>` : '<span class="badge badge-gray">Sem produto</span>'}
+          </div>
           <div class="msg-card-body">${escHtml(m.template)}</div>
           <div class="msg-card-footer">
             <button class="btn btn-ghost btn-sm" onclick='openMsgModal(${JSON.stringify(m)})'>Editar</button>
             <button class="btn btn-danger btn-sm" onclick="deleteMsg('${m.id}')">Excluir</button>
           </div>
-        </div>
-      `).join('')}
-    </div>`;
+        </div>`;
+      }).join('')}
+    </div>`}
+  `;
 }
 
-function openMsgModal(msg = null) {
+async function switchMsgTab(productId) {
+  _msgActiveProduct = productId;
+  pages.messages();
+}
+
+async function openMsgModal(msg = null) {
   const editing = !!msg;
+  const productOpts = await loadProductOptions(editing ? msg.productId : (_msgActiveProduct !== '__all__' && _msgActiveProduct !== '__none__' ? _msgActiveProduct : null));
   showModal(`
     <h2>${editing ? 'Editar Template' : 'Nova Mensagem'}</h2>
+    <div class="form-group">
+      <label>Produto</label>
+      <select id="f-msg-product">${productOpts}</select>
+    </div>
     <div class="form-group">
       <label>Texto da mensagem</label>
       <textarea id="f-template" placeholder="Use {nome} e {cpf} como variáveis...">${editing ? escHtml(msg.template) : ''}</textarea>
@@ -967,13 +1142,14 @@ function openMsgModal(msg = null) {
 
 async function saveMsg(id = null) {
   const template = $('f-template').value.trim();
+  const productId = $('f-msg-product')?.value || null;
   if (!template) return toast('Digite o template.', 'error');
   try {
     if (id) {
-      await api('PUT', `/messages/${id}`, { template });
+      await api('PUT', `/messages/${id}`, { template, productId });
       toast('Mensagem atualizada!');
     } else {
-      await api('POST', '/messages', { template });
+      await api('POST', '/messages', { template, productId });
       toast('Mensagem criada!');
     }
     closeModal();

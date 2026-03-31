@@ -52,7 +52,8 @@ function loadData() {
     const initial = {
       clients: [],
       senders: [],
-      messages: DEFAULT_MESSAGES.map((t, i) => ({ id: `msg-default-${i + 1}`, template: t })),
+      products: [],
+      messages: DEFAULT_MESSAGES.map((t, i) => ({ id: `msg-default-${i + 1}`, template: t, productId: null })),
       history: [],
       config: {
         evolutionUrl: process.env.EVOLUTION_URL || '',
@@ -85,6 +86,45 @@ function evoClient() {
   return axios.create({ baseURL, headers: { apikey }, timeout: 15000 });
 }
 
+// ─── Routes: Products ────────────────────────────────────────────────────────
+app.get('/api/products', (req, res) => {
+  const data = loadData();
+  if (!data.products) { data.products = []; saveData(data); }
+  res.json(data.products);
+});
+
+app.post('/api/products', (req, res) => {
+  const { name } = req.body;
+  if (!name) return res.status(400).json({ error: 'Nome do produto é obrigatório.' });
+  const data = loadData();
+  if (!data.products) data.products = [];
+  const product = { id: uid(), name: name.trim(), createdAt: new Date().toISOString() };
+  data.products.push(product);
+  saveData(data);
+  res.status(201).json(product);
+});
+
+app.put('/api/products/:id', (req, res) => {
+  const data = loadData();
+  if (!data.products) data.products = [];
+  const idx = data.products.findIndex(p => p.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'Produto não encontrado.' });
+  data.products[idx].name = (req.body.name || '').trim() || data.products[idx].name;
+  saveData(data);
+  res.json(data.products[idx]);
+});
+
+app.delete('/api/products/:id', (req, res) => {
+  const data = loadData();
+  if (!data.products) data.products = [];
+  data.products = data.products.filter(p => p.id !== req.params.id);
+  // unlink clients and messages from this product
+  data.clients.forEach(c => { if (c.productId === req.params.id) c.productId = null; });
+  data.messages.forEach(m => { if (m.productId === req.params.id) m.productId = null; });
+  saveData(data);
+  res.json({ ok: true });
+});
+
 // ─── Routes: Config ───────────────────────────────────────────────────────────
 app.get('/api/config', (req, res) => {
   const data = loadData();
@@ -108,7 +148,7 @@ app.get('/api/clients', (req, res) => {
 });
 
 app.post('/api/clients', (req, res) => {
-  const { name, cpf, phone, interval } = req.body;
+  const { name, cpf, phone, interval, productId } = req.body;
   if (!name || !cpf || !phone || !interval) {
     return res.status(400).json({ error: 'Preencha todos os campos.' });
   }
@@ -121,6 +161,7 @@ app.post('/api/clients', (req, res) => {
     cpf: cpf.replace(/\D/g, ''),
     phone: fullPhone,
     interval: Number(interval),
+    productId: productId || null,
     lastSent: null,
     lastMessageId: null,
     createdAt: new Date().toISOString()
@@ -134,7 +175,7 @@ app.put('/api/clients/:id', (req, res) => {
   const data = loadData();
   const idx = data.clients.findIndex(c => c.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Cliente não encontrado.' });
-  const { name, cpf, phone, interval } = req.body;
+  const { name, cpf, phone, interval, productId } = req.body;
   const digits = (phone || '').replace(/\D/g, '');
   const fullPhone = digits.startsWith('55') ? digits : '55' + digits;
   data.clients[idx] = {
@@ -142,7 +183,8 @@ app.put('/api/clients/:id', (req, res) => {
     name: (name || data.clients[idx].name).trim(),
     cpf: cpf ? cpf.replace(/\D/g, '') : data.clients[idx].cpf,
     phone: fullPhone || data.clients[idx].phone,
-    interval: interval ? Number(interval) : data.clients[idx].interval
+    interval: interval ? Number(interval) : data.clients[idx].interval,
+    productId: productId !== undefined ? (productId || null) : data.clients[idx].productId
   };
   saveData(data);
   res.json(data.clients[idx]);
@@ -158,7 +200,7 @@ app.delete('/api/clients/:id', (req, res) => {
 });
 
 app.post('/api/clients/import', (req, res) => {
-  const { rows, interval } = req.body; // rows: [{name, cpf, phone}], interval: number
+  const { rows, interval, productId } = req.body;
   if (!Array.isArray(rows) || !rows.length) return res.status(400).json({ error: 'Nenhum dado enviado.' });
   const data = loadData();
   const imported = [];
@@ -175,6 +217,7 @@ app.post('/api/clients/import', (req, res) => {
       cpf,
       phone: fullPhone,
       interval: Number(interval) || 2,
+      productId: productId || null,
       lastSent: null,
       lastMessageId: null,
       createdAt: new Date().toISOString()
@@ -196,12 +239,19 @@ app.post('/api/senders', async (req, res) => {
   if (!instanceName) return res.status(400).json({ error: 'Nome da instância é obrigatório.' });
   try {
     const evo = evoClient();
-    await evo.post('/instance/create', {
-      instanceName,
-      integration: 'WHATSAPP-BAILEYS',
-      qrcode: true
-    });
+    try {
+      await evo.post('/instance/create', { instanceName, integration: 'WHATSAPP-BAILEYS', qrcode: true });
+    } catch (createErr) {
+      // If instance already exists in Evolution, that's ok — just register locally
+      const msg = String(createErr.response?.data?.message || createErr.message || '');
+      if (!msg.toLowerCase().includes('already') && !msg.toLowerCase().includes('exists') && createErr.response?.status !== 409) {
+        throw createErr;
+      }
+    }
     const data = loadData();
+    if (data.senders.find(s => s.instanceName === instanceName)) {
+      return res.status(409).json({ error: 'Instância já cadastrada localmente.' });
+    }
     const sender = { id: uid(), instanceName, status: 'connecting', createdAt: new Date().toISOString() };
     data.senders.push(sender);
     saveData(data);
@@ -229,9 +279,17 @@ app.get('/api/senders/:instanceName/qr', async (req, res) => {
   try {
     const evo = evoClient();
     const resp = await evo.get(`/instance/connect/${instanceName}`);
-    res.json(resp.data);
+    const d = resp.data;
+    // Normalize across Evolution API v1 / v2 response formats
+    const qr = d?.qrcode || d;
+    const base64 = qr?.base64 || d?.base64 || null;
+    const code   = qr?.code   || d?.code   || null;
+    const pairingCode = qr?.pairingCode || d?.pairingCode || null;
+    res.json({ base64, code, pairingCode, _raw: d });
   } catch (err) {
-    const msg = err.response?.data?.message || err.message;
+    const msg = err.response?.data?.message
+      || (Array.isArray(err.response?.data) ? err.response.data[0] : null)
+      || err.message;
     res.status(500).json({ error: msg });
   }
 });
@@ -241,17 +299,41 @@ app.get('/api/senders/:instanceName/status', async (req, res) => {
   try {
     const evo = evoClient();
     const resp = await evo.get(`/instance/fetchInstances`, { params: { instanceName } });
-    const instances = Array.isArray(resp.data) ? resp.data : [resp.data];
-    const inst = instances.find(i => i.instanceName === instanceName);
-    const status = inst?.status || 'close';
-    // update local status
+    const d = resp.data;
+    // Handle array, single object, or nested {instance:{}} formats
+    let inst = null;
+    if (Array.isArray(d)) {
+      inst = d.find(i => (i.instanceName || i.instance?.instanceName) === instanceName);
+    } else if (d?.instance) {
+      inst = d.instance.instanceName === instanceName ? d.instance : null;
+    } else if (d?.instanceName === instanceName) {
+      inst = d;
+    }
+    const status = inst?.connectionStatus || inst?.status || 'close';
+    // normalize Evolution v2 connectionStatus values
+    const normalized = status === 'open' || status === 'ONLINE' ? 'open' : status;
     const data = loadData();
     const s = data.senders.find(s => s.instanceName === instanceName);
-    if (s && s.status !== status) { s.status = status; saveData(data); }
-    res.json({ status });
+    if (s && s.status !== normalized) { s.status = normalized; saveData(data); }
+    res.json({ status: normalized, _raw: inst });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// Debug: retorna resposta bruta da Evolution para diagnóstico
+app.get('/api/debug/evo/:instanceName', async (req, res) => {
+  try {
+    const evo = evoClient();
+    const [connectResp, fetchResp] = await Promise.allSettled([
+      evo.get(`/instance/connect/${req.params.instanceName}`),
+      evo.get(`/instance/fetchInstances`, { params: { instanceName: req.params.instanceName } })
+    ]);
+    res.json({
+      connect: connectResp.status === 'fulfilled' ? connectResp.value.data : { error: connectResp.reason?.message },
+      fetch:   fetchResp.status === 'fulfilled'   ? fetchResp.value.data   : { error: fetchResp.reason?.message }
+    });
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // ─── Routes: Messages ─────────────────────────────────────────────────────────
@@ -260,10 +342,10 @@ app.get('/api/messages', (req, res) => {
 });
 
 app.post('/api/messages', (req, res) => {
-  const { template } = req.body;
+  const { template, productId } = req.body;
   if (!template) return res.status(400).json({ error: 'Template é obrigatório.' });
   const data = loadData();
-  const msg = { id: uid(), template: template.trim(), createdAt: new Date().toISOString() };
+  const msg = { id: uid(), template: template.trim(), productId: productId || null, createdAt: new Date().toISOString() };
   data.messages.push(msg);
   saveData(data);
   res.status(201).json(msg);
@@ -273,7 +355,8 @@ app.put('/api/messages/:id', (req, res) => {
   const data = loadData();
   const idx = data.messages.findIndex(m => m.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Mensagem não encontrada.' });
-  data.messages[idx].template = (req.body.template || '').trim();
+  if (req.body.template !== undefined) data.messages[idx].template = req.body.template.trim();
+  if (req.body.productId !== undefined) data.messages[idx].productId = req.body.productId || null;
   saveData(data);
   res.json(data.messages[idx]);
 });
@@ -321,10 +404,14 @@ async function runScheduler() {
     // Pick random sender
     const sender = connectedSenders[Math.floor(Math.random() * connectedSenders.length)];
 
-    // Pick random message, not the last used
-    const available = messages.length > 1
-      ? messages.filter(m => m.id !== client.lastMessageId)
-      : messages;
+    // Pick message from client's product pool (fallback to all if no product or no product msgs)
+    const productMsgs = client.productId
+      ? messages.filter(m => m.productId === client.productId)
+      : messages.filter(m => !m.productId);
+    const pool = (productMsgs.length ? productMsgs : messages);
+    const available = pool.length > 1
+      ? pool.filter(m => m.id !== client.lastMessageId)
+      : pool;
     const msgObj = available[Math.floor(Math.random() * available.length)];
     const text = msgObj.template
       .replace(/\{nome\}/gi, client.name)
